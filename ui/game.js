@@ -154,4 +154,32 @@ window.addEventListener("keyup", (event) => setControl(event.key, false));
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", startGame);
 
+// ── On-screen D-pad touch/click controls ──────────────────────────────────────
+const dpadMap = {
+  dpadUp:    "up",
+  dpadDown:  "down",
+  dpadLeft:  "left",
+  dpadRight: "right",
+};
+
+for (const [id, dir] of Object.entries(dpadMap)) {
+  const btn = document.getElementById(id);
+  if (!btn) continue;
+
+  const press   = (e) => { e.preventDefault(); controls[dir] = true; };
+  const release = (e) => { e.preventDefault(); controls[dir] = false; };
+
+  btn.addEventListener("touchstart",  press,   { passive: false });
+  btn.addEventListener("touchend",    release, { passive: false });
+  btn.addEventListener("touchcancel", release, { passive: false });
+  btn.addEventListener("mousedown",   press);
+  btn.addEventListener("mouseup",     release);
+  btn.addEventListener("mouseleave",  release);
+}
+
+// Prevent the page from scrolling while the player is using the D-pad
+document.getElementById("dpad")?.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+}, { passive: false });
+
 requestAnimationFrame(frame);
