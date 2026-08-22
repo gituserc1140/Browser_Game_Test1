@@ -39,7 +39,7 @@ http://127.0.0.1:5000
 
 To open the game from your phone (same Wi-Fi/LAN):
 
-1. Keep the server running on your computer (`python app.py` already binds to all interfaces by default).
+1. Keep the server running on your computer (`python app.py` binds to all interfaces by default unless you override `HOST`).
 2. Find your computer's local IP address (for example `192.168.1.25`).
 3. On your phone, open:
 
