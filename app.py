@@ -1,50 +1,60 @@
-"""Streamlit-based micro-app entrypoint.
+"""Flask entrypoint for the browser-based game."""
 
-This lightweight app preserves the original repository architecture but removes
-any Weather-specific logic. It demonstrates how to gather minimal inputs from
-an end user (optional API base URL and API key) and calls api_client.fetch_data()
-as an integration point. The UI is rendered via ui.render_home().
+from __future__ import annotations
 
-Run locally:
-  pip install -r requirements.txt
-  streamlit run app.py
-"""
+import os
+from uuid import uuid4
 
-import streamlit as st
-from config import settings
-import api_client
-import ui
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
-st.set_page_config(page_title="Micro-app", layout="centered")
+from api_client import create_game_state, update_game_state
 
-st.header("Micro-app Template")
-st.write("A lightweight template for building small API-driven micro-apps using Streamlit.")
 
-# allow overriding API base and API key for quick testing; they default to config values
-api_base = st.text_input("API base URL", value=settings.API_BASE_URL or "")
-api_key = st.text_input("API key (optional)", value="", type="password")
+app = Flask(__name__, template_folder="ui", static_folder="static")
+GAME_STATES = {}
 
-params_input = st.text_area("Parameters (JSON)", value='{}', help="Optional JSON to pass to fetch_data as params")
 
-if st.button("Fetch data"):
-    # parse params safely
-    import json
+@app.get("/")
+def index() -> str:
+    return render_template("index.html")
 
-    try:
-        params = json.loads(params_input or "{}")
-    except Exception as exc:
-        st.error(f"Could not parse parameters as JSON: {exc}")
-        params = {}
 
-    # Temporary override of settings for this run (non-persistent)
-    if api_base:
-        settings.API_BASE_URL = api_base
-    if api_key:
-        # pass explicit api_key to fetch_data (preferred) and do not modify global settings
-        data = api_client.fetch_data(params=params, api_key=api_key)
-    else:
-        data = api_client.fetch_data(params=params)
+@app.get("/ui/<path:filename>")
+def ui_assets(filename: str):
+    return send_from_directory(app.template_folder, filename)
 
-    ui.render_home(data)
-else:
-    st.info("Enter an API base URL or use the default configured in config/settings.py, provide any parameters, then click Fetch data.")
+
+@app.post("/api/start")
+def start_game():
+    game_id = str(uuid4())
+    state = create_game_state()
+    update_game_state(state, {"start": True}, 0)
+    GAME_STATES[game_id] = state
+    return jsonify({"game_id": game_id, "state": state})
+
+
+@app.get("/api/state/<game_id>")
+def get_state(game_id: str):
+    state = GAME_STATES.get(game_id)
+    if not state:
+        return jsonify({"error": "Game not found"}), 404
+    return jsonify({"game_id": game_id, "state": state})
+
+
+@app.post("/api/update")
+def update_state():
+    payload = request.get_json(silent=True) or {}
+    game_id = payload.get("game_id")
+
+    if not game_id or game_id not in GAME_STATES:
+        return jsonify({"error": "Invalid or missing game_id"}), 404
+
+    controls = payload.get("input") or {}
+    dt = payload.get("dt", 1 / 60)
+
+    state = update_game_state(GAME_STATES[game_id], controls=controls, dt=dt)
+    return jsonify({"game_id": game_id, "state": state})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
