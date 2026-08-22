@@ -1,50 +1,94 @@
-"""Streamlit-based micro-app entrypoint.
+"""Flask entrypoint for the browser-based game."""
 
-This lightweight app preserves the original repository architecture but removes
-any Weather-specific logic. It demonstrates how to gather minimal inputs from
-an end user (optional API base URL and API key) and calls api_client.fetch_data()
-as an integration point. The UI is rendered via ui.render_home().
+from __future__ import annotations
 
-Run locally:
-  pip install -r requirements.txt
-  streamlit run app.py
-"""
+import os
+import time
+from uuid import uuid4
 
-import streamlit as st
-from config import settings
-import api_client
-import ui
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
-st.set_page_config(page_title="Micro-app", layout="centered")
+from api_client import create_game_state, update_game_state
 
-st.header("Micro-app Template")
-st.write("A lightweight template for building small API-driven micro-apps using Streamlit.")
 
-# allow overriding API base and API key for quick testing; they default to config values
-api_base = st.text_input("API base URL", value=settings.API_BASE_URL or "")
-api_key = st.text_input("API key (optional)", value="", type="password")
+app = Flask(__name__, template_folder="ui", static_folder="static")
+GAME_STATES = {}
+STATE_TTL_SECONDS = int(os.getenv("GAME_STATE_TTL_SECONDS", "600"))
+MAX_ACTIVE_GAMES = int(os.getenv("MAX_ACTIVE_GAMES", "200"))
 
-params_input = st.text_area("Parameters (JSON)", value='{}', help="Optional JSON to pass to fetch_data as params")
 
-if st.button("Fetch data"):
-    # parse params safely
-    import json
+def _cleanup_states() -> None:
+    now = time.time()
+    expired_ids = [
+        game_id
+        for game_id, entry in GAME_STATES.items()
+        if now - entry["updated_at"] > STATE_TTL_SECONDS
+    ]
+    for game_id in expired_ids:
+        GAME_STATES.pop(game_id, None)
 
-    try:
-        params = json.loads(params_input or "{}")
-    except Exception as exc:
-        st.error(f"Could not parse parameters as JSON: {exc}")
-        params = {}
+    while len(GAME_STATES) > MAX_ACTIVE_GAMES:
+        oldest_game_id = min(
+            GAME_STATES, key=lambda game_id: GAME_STATES[game_id]["updated_at"]
+        )
+        GAME_STATES.pop(oldest_game_id, None)
 
-    # Temporary override of settings for this run (non-persistent)
-    if api_base:
-        settings.API_BASE_URL = api_base
-    if api_key:
-        # pass explicit api_key to fetch_data (preferred) and do not modify global settings
-        data = api_client.fetch_data(params=params, api_key=api_key)
-    else:
-        data = api_client.fetch_data(params=params)
 
-    ui.render_home(data)
-else:
-    st.info("Enter an API base URL or use the default configured in config/settings.py, provide any parameters, then click Fetch data.")
+@app.get("/")
+def index() -> str:
+    return render_template("index.html")
+
+
+@app.get("/ui/<path:filename>")
+def ui_assets(filename: str):
+    return send_from_directory(app.template_folder, filename)
+
+
+@app.post("/api/start")
+def start_game():
+    _cleanup_states()
+    game_id = str(uuid4())
+    state = create_game_state()
+    update_game_state(state, {"start": True}, 0)
+    GAME_STATES[game_id] = {"state": state, "updated_at": time.time()}
+    return jsonify({"game_id": game_id, "state": state})
+
+
+@app.get("/api/state/<game_id>")
+def get_state(game_id: str):
+    _cleanup_states()
+    entry = GAME_STATES.get(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    entry["updated_at"] = time.time()
+    state = entry["state"]
+    return jsonify({"game_id": game_id, "state": state})
+
+
+@app.post("/api/update")
+def update_state():
+    _cleanup_states()
+    payload = request.get_json(silent=True) or {}
+    game_id = payload.get("game_id")
+
+    if not game_id:
+        return jsonify({"error": "Missing game_id"}), 400
+    if game_id not in GAME_STATES:
+        return jsonify({"error": "Invalid or missing game_id"}), 404
+
+    controls = payload.get("input") or {}
+    dt = payload.get("dt", 1 / 60)
+
+    entry = GAME_STATES[game_id]
+    entry["state"] = update_game_state(entry["state"], controls=controls, dt=dt)
+    state = entry["state"]
+    entry["updated_at"] = time.time()
+    return jsonify({"game_id": game_id, "state": state})
+
+
+if __name__ == "__main__":
+    app.run(
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "false").lower() == "true",
+    )

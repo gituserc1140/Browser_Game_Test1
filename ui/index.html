@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asteroid Dodger</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <h1>Asteroid Dodger</h1>
+      <section class="hud">
+        <span>Score: <strong id="score">0</strong></span>
+        <span>Health: <strong id="health">3</strong></span>
+      </section>
+
+      <div class="canvas-wrap">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+
+        <div id="menuScreen" class="overlay visible">
+          <h2>Main Menu</h2>
+          <p>Move with arrow keys or WASD. Dodge falling asteroids.</p>
+          <button id="startButton">Start Game</button>
+        </div>
+
+        <div id="gameOverScreen" class="overlay hidden">
+          <h2>Game Over</h2>
+          <p>Final Score: <strong id="finalScore">0</strong></p>
+          <button id="restartButton">Play Again</button>
+        </div>
+      </div>
+    </main>
+
+    <script src="/ui/game.js"></script>
+  </body>
+</html>
