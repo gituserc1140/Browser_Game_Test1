@@ -34,7 +34,9 @@ const STEP_SECONDS = 1 / 30;
 const MAX_QUEUED_STEPS = 5;
 
 function startGame() {
+  const prevHighScore = gameState ? gameState.high_score : 0;
   gameState = createGameState();
+  gameState.high_score = prevHighScore;
   updateGameState(gameState, { start: true }, 0);
   menuScreen.classList.add("hidden");
   menuScreen.classList.remove("visible");
