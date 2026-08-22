@@ -2,6 +2,10 @@
 
 Dodge falling asteroids for as long as possible.
 
+## Play online (GitHub Pages)
+
+**[▶ Play now](https://gituserc1140.github.io/Browser_Game_Test1/)** — no install required, runs entirely in your browser.
+
 ## Quick start (one command)
 
 ```bash
@@ -46,6 +50,11 @@ Every asteroid that flies past scores a point. Collisions cost health. The game 
 
 ## Repository layout
 
+- `docs/` — static build served by GitHub Pages (self-contained, no server needed)
+  - `engine.js` — game simulation logic (JS port of `api_client.py`)
+  - `game.js` — rendering and input handling
+  - `index.html` / `styles.css` — UI
+  - `static/` — sprites and images
 - `launch.py` — one-click launcher
 - `app.py` — Flask server (UI + game state endpoints)
 - `api_client.py` — core game logic (physics, collisions, entities)
