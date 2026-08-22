@@ -26,7 +26,10 @@ Then open `http://127.0.0.1:5000` in your browser.
 
 ## Play on your phone (same Wi-Fi)
 
-1. Start the server on your computer with either method above.
+1. Start the server with LAN mode enabled:
+   ```bash
+   HOST=0.0.0.0 python launch.py
+   ```
 2. Find your computer's local IP (e.g. `192.168.1.25`).
 3. On your phone, open: `http://<your-computer-ip>:5000`
 4. Use the on-screen D-pad — it appears automatically on touch devices.

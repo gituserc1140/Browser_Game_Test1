@@ -8,6 +8,8 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 import webbrowser
 
 
@@ -23,21 +25,27 @@ def _install_deps() -> None:
     )
 
 
-def _open_browser() -> None:
-    time.sleep(1.5)
-    webbrowser.open(URL)
+def _open_browser_when_ready(timeout: float = 15.0) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            urllib.request.urlopen(URL, timeout=1)  # noqa: S310
+            webbrowser.open(URL)
+            return
+        except (urllib.error.URLError, OSError):
+            time.sleep(0.25)
 
 
 def main() -> None:
     _install_deps()
-    threading.Thread(target=_open_browser, daemon=True).start()
-    print(f"Starting server → {URL}")
-    os.environ.setdefault("HOST", "0.0.0.0")
+    threading.Thread(target=_open_browser_when_ready, daemon=True).start()
+    host = os.getenv("HOST", "127.0.0.1")
+    print(f"Starting server → {URL}  (set HOST=0.0.0.0 for LAN access)")
     # Import here so Flask is available after pip install
     import app as _app  # noqa: PLC0415
 
     _app.app.run(
-        host=os.environ["HOST"],
+        host=host,
         port=PORT,
         debug=os.getenv("FLASK_DEBUG", "false").lower() == "true",
     )
