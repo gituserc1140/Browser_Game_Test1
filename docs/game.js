@@ -99,6 +99,9 @@ function frame(timestamp) {
       updateGameState(gameState, controls, STEP_SECONDS);
       accumulator -= STEP_SECONDS;
     }
+  }
+
+  if (gameState) {
     syncUiState();
   }
 
