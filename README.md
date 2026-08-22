@@ -31,10 +31,20 @@ pip install -r requirements.txt
 python app.py
 ```
 
-3. Open your browser at:
+3. Open your browser:
 
 ```text
 http://127.0.0.1:5000
+```
+
+To open the game from your phone (same Wi-Fi/LAN):
+
+1. Keep the server running on your computer (`python app.py` already binds to all interfaces by default).
+2. Find your computer's local IP address (for example `192.168.1.25`).
+3. On your phone, open:
+
+```text
+http://<your-computer-local-ip>:5000
 ```
 
 ## API endpoints
