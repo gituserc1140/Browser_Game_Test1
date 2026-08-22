@@ -50,9 +50,20 @@ def update_game_state(game_state: GameState, controls: Optional[Dict[str, Any]] 
         game_state["spawn_cooldown"] += settings.SPAWN_INTERVAL
 
     survived_entities: List[Dict[str, Any]] = []
+    player = game_state["player"]
     for entity in game_state["entities"]:
+        if _is_overlap(player, entity):
+            game_state["health"] -= 1
+            game_state["events"].append({"type": "player_hit", "entity_id": entity.get("id")})
+            continue
+
         entity["x"] += entity["vx"] * dt
         entity["y"] += entity["vy"] * dt
+
+        if _is_overlap(player, entity):
+            game_state["health"] -= 1
+            game_state["events"].append({"type": "player_hit", "entity_id": entity.get("id")})
+            continue
 
         if entity["y"] > game_state["world"]["height"]:
             game_state["score"] += 1
@@ -60,8 +71,6 @@ def update_game_state(game_state: GameState, controls: Optional[Dict[str, Any]] 
         survived_entities.append(entity)
 
     game_state["entities"] = survived_entities
-
-    _resolve_collisions(game_state)
 
     if game_state["health"] <= 0:
         game_state["status"] = "game_over"
@@ -125,20 +134,6 @@ def _spawn_asteroid(game_state: GameState) -> None:
         }
     )
     game_state["next_entity_id"] += 1
-
-
-def _resolve_collisions(game_state: GameState) -> None:
-    player = game_state["player"]
-    remaining_entities: List[Dict[str, Any]] = []
-
-    for entity in game_state["entities"]:
-        if _is_overlap(player, entity):
-            game_state["health"] -= 1
-            game_state["events"].append({"type": "player_hit", "entity_id": entity.get("id")})
-            continue
-        remaining_entities.append(entity)
-
-    game_state["entities"] = remaining_entities
 
 
 def _is_overlap(a: Dict[str, Any], b: Dict[str, Any]) -> bool:

@@ -33,6 +33,7 @@ const controls = {
 };
 
 const STEP_SECONDS = 1 / 30;
+const MAX_QUEUED_STEPS = 5;
 
 async function startGame() {
   const response = await fetch("/api/start", { method: "POST" });
@@ -45,25 +46,38 @@ async function startGame() {
   gameOverScreen.classList.remove("visible");
 }
 
-async function sendUpdate(dt) {
-  if (!gameId || inFlight) return;
+function sendUpdate(dt) {
+  if (!gameId || inFlight) return false;
   inFlight = true;
 
-  try {
-    const response = await fetch("/api/update", {
+  fetch("/api/update", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ game_id: gameId, input: controls, dt }),
+    })
+    .then(async (response) => {
+      let payload = {};
+      try {
+        payload = await response.json();
+      } catch (_error) {
+        payload = {};
+      }
+      return { response, payload };
+    })
+    .then(({ response, payload }) => {
+      if (response.ok) {
+        gameState = payload.state;
+        syncUiState();
+      }
+    })
+    .catch((error) => {
+      console.error("Failed to update game state:", error);
+    })
+    .finally(() => {
+      inFlight = false;
     });
 
-    const payload = await response.json();
-    if (response.ok) {
-      gameState = payload.state;
-      syncUiState();
-    }
-  } finally {
-    inFlight = false;
-  }
+  return true;
 }
 
 function syncUiState() {
@@ -114,9 +128,12 @@ function frame(timestamp) {
   const dt = Math.min(0.1, (timestamp - lastFrame) / 1000);
   lastFrame = timestamp;
   accumulator += dt;
+  accumulator = Math.min(accumulator, STEP_SECONDS * MAX_QUEUED_STEPS);
 
   while (accumulator >= STEP_SECONDS) {
-    sendUpdate(STEP_SECONDS);
+    if (!sendUpdate(STEP_SECONDS)) {
+      break;
+    }
     accumulator -= STEP_SECONDS;
   }
 
